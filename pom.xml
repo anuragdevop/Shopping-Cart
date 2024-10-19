@@ -108,7 +108,7 @@
         </dependency>
     </dependencies>
 
-         <distributionManagement>
+    <distributionManagement>
         <repository>
             <id>maven-releases</id>
             <url>http://13.235.33.220:8081/repository/maven-releases/</url>
@@ -125,8 +125,13 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
             </plugin>
+
+            <!-- SonarQube Plugin -->
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>3.9.0.2155</version> <!-- Check for the latest version -->
+            </plugin>
         </plugins>
     </build>
-
-
 </project>
