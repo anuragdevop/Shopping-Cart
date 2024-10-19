@@ -2,54 +2,22 @@ pipeline {
     agent any
     
     tools {
-        jdk 'jdk11'
-        maven 'maven3'
+        jdk 'jdk11' // Specify JDK version
+        maven 'maven3' // Specify Maven version
     }
     
     environment {
-        SCANNER_HOME = tool 'sonar-scanner'
+        SCANNER_HOME = tool 'sonar-scanner' // Path to the SonarQube scanner
+        SONAR_REPORT_PATH = 'target/sonar/report' // Adjust as needed
+        EMAIL_RECIPIENTS = 'your-email@example.com' // Specify the recipient's email
     }
     
     stages {
         stage('Git Checkout') {
             steps {
                 script {
-                    echo "Checking out code from Git..."
-                    git branch: 'main', changelog: false, credentialsId: '15fb69c3-3460-4d51-bd07-2b0545fa5151', poll: false, url: 'https://github.com/jaiswaladi246/Shopping-Cart.git'
-                }
-            }
-        }
-        
-        stage('Compile') {
-            steps {
-                script {
-                    echo "Compiling the code..."
-                    sh "mvn clean compile -DskipTests=true"
-                }
-            }
-        }
-        
-        stage('OWASP Dependency Check') {
-            steps {
-                script {
-                    echo "Running OWASP Dependency Check..."
-                    dependencyCheck additionalArguments: '--scan ./', odcInstallation: 'DP'
-                    dependencyCheckPublisher pattern: '**/dependency-check-report.xml'
-                }
-            }
-        }
-        
-        stage('SonarQube Analysis') {
-            steps {
-                script {
-                    echo "Running SonarQube analysis..."
-                    withSonarQubeEnv('sonar-server') {
-                        sh '''
-                            $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectName=Shopping-Cart \
-                            -Dsonar.java.binaries=. \
-                            -Dsonar.projectKey=Shopping-Cart
-                        '''
-                    }
+                    echo "Checking out code from GitHub..."
+                    git branch: 'main', changelog: false, credentialsId: 'your-credentials-id', poll: false, url: 'https://github.com/jaiswaladi246/Shopping-Cart.git'
                 }
             }
         }
@@ -63,15 +31,46 @@ pipeline {
             }
         }
         
-        stage('Docker Build & Push') {
+        stage('SonarQube Analysis') {
             steps {
                 script {
-                    echo "Building and pushing the Docker image..."
-                    withDockerRegistry(credentialsId: '2fe19d8a-3d12-4b82-ba20-9d22e6bf1672', toolName: 'docker') {
-                        sh "docker build -t shopping-cart -f docker/Dockerfile ."
-                        sh "docker tag shopping-cart adijaiswal/shopping-cart:latest"
-                        sh "docker push adijaiswal/shopping-cart:latest"
+                    echo "Running SonarQube analysis..."
+                    withSonarQubeEnv('sonar-server') {
+                        sh '''
+                            $SCANNER_HOME/bin/sonar-scanner -Dsonar.projectKey=Shopping-Cart \
+                            -Dsonar.projectName=Shopping-Cart \
+                            -Dsonar.java.binaries=target/classes \
+                            -Dsonar.sourceEncoding=UTF-8
+                        '''
                     }
+                }
+            }
+        }
+        
+        stage('Generate Sonar Report') {
+            steps {
+                script {
+                    echo "Generating SonarQube report..."
+                    sh "curl -u 'your-sonarqube-credentials' 'http://your-sonarqube-server/api/measures/component_tree?component=Shopping-Cart&metricKeys=sqale_index,vulnerabilities,bugs,code_smells' -o sonar-report.json"
+                }
+            }
+        }
+        
+        stage('Email Report') {
+            steps {
+                script {
+                    echo "Sending report via email..."
+                    emailext (
+                        subject: "SonarQube Report for Shopping-Cart",
+                        body: """
+                        Please find the attached SonarQube report for the Shopping-Cart project.
+                        
+                        Report Details:
+                        ${readFile('sonar-report.json')}
+                        """,
+                        to: "${EMAIL_RECIPIENTS}",
+                        attachLog: true
+                    )
                 }
             }
         }
